@@ -1,0 +1,20 @@
+name: sd-next
+services:
+  sd-next:
+    container_name: sd-next
+    build:
+      context: .
+      shm_size: '2gb'
+    volumes:
+      - ./config:/config
+      - /mnt/data/stablediffusion/data/models:/config/models
+    ports:
+      - "7863:7860"
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
