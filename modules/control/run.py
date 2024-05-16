@@ -14,6 +14,7 @@ from modules.control.units import t2iadapter # TencentARC T2I-Adapter
 from modules.control.units import reference # ControlNet-Reference
 from modules import devices, shared, errors, processing, images, sd_models, scripts, masking
 from modules.processing_class import StableDiffusionProcessingControl
+from modules.ui_common import infotext_to_html
 from modules.api import script
 
 
@@ -71,6 +72,7 @@ def control_run(units: List[unit.Unit] = [], inputs: List[Image.Image] = [], ini
                 *input_script_args
         ):
     global instance, pipe, original_pipeline # pylint: disable=global-statement
+    t_start = time.time()
     debug(f'Control: type={unit_type} input={inputs} init={inits} type={input_type}')
     if inputs is None or (type(inputs) is list and len(inputs) == 0):
         inputs = [None]
@@ -207,9 +209,11 @@ def control_run(units: List[unit.Unit] = [], inputs: List[Image.Image] = [], ini
                 active_process.append(u.process)
             shared.log.debug(f'Control process unit: i={num_units} process={u.process.processor_id}')
             active_strength.append(float(u.strength))
-    p.ops.append('control')
     debug(f'Control active: process={len(active_process)} model={len(active_model)}')
 
+    processed: processing.Processed = None
+    image_txt = ''
+    info_txt = []
     has_models = False
     selected_models: List[Union[controlnet.ControlNetModel, xs.ControlNetXSModel, t2iadapter.AdapterModel]] = None
     control_conditioning = None
@@ -235,6 +239,7 @@ def control_run(units: List[unit.Unit] = [], inputs: List[Image.Image] = [], ini
 
     debug(f'Control: run type={unit_type} models={has_models}')
     if has_models:
+        p.ops.append('control')
         p.extra_generation_params["Control mode"] = unit_type # overriden later with pretty-print
         p.extra_generation_params["Control conditioning"] = control_conditioning if isinstance(control_conditioning, list) else [control_conditioning]
         p.extra_generation_params['Control start'] = control_guidance_start if isinstance(control_guidance_start, list) else [control_guidance_start]
@@ -291,13 +296,6 @@ def control_run(units: List[unit.Unit] = [], inputs: List[Image.Image] = [], ini
             p.strength = active_strength[0]
         pipe = shared.sd_model
         instance = None
-        """
-        try:
-            pipe = diffusers.AutoPipelineForText2Image.from_pipe(shared.sd_model) # use set_diffuser_pipe
-        except Exception as e:
-            shared.log.warning(f'Control pipeline create: {e}')
-            pipe = shared.sd_model
-        """
 
 
     debug(f'Control pipeline: class={pipe.__class__.__name__} args={vars(p)}')
@@ -570,7 +568,11 @@ def control_run(units: List[unit.Unit] = [], inputs: List[Image.Image] = [], ini
                             processed: processing.Processed = processing.process_images(p) # run actual pipeline
                         else:
                             script_run = True
-                        output = processed.images if processed is not None else None
+                        output = None
+                        if processed is not None:
+                            output = processed.images
+                            info_txt = [processed.infotext(p, i) for i in range(len(output))]
+
                         # output = pipe(**vars(p)).images # alternative direct pipe exec call
                     else: # blend all processed images and return
                         output = [processed_image]
@@ -620,12 +622,14 @@ def control_run(units: List[unit.Unit] = [], inputs: List[Image.Image] = [], ini
         shared.log.error(f'Control pipeline failed: type={unit_type} units={len(active_model)} error={e}')
         errors.display(e, 'Control')
 
+    t_end = time.time()
+
     if len(output_images) == 0:
         output_images = None
-        image_txt = 'images=None'
+        image_txt = '| Images None'
     else:
         image_str = [f'{image.width}x{image.height}' for image in output_images]
-        image_txt = f'| Images {len(output_images)} | Size {" ".join(image_str)}'
+        image_txt = f'| Time {t_end-t_start:.2f}s | Images {len(output_images)} | Size {" ".join(image_str)}'
         p.init_images = output_images # may be used for hires
 
     if video_type != 'None' and isinstance(output_images, list):
@@ -633,11 +637,15 @@ def control_run(units: List[unit.Unit] = [], inputs: List[Image.Image] = [], ini
         output_filename = images.save_video(p, filename=None, images=output_images, video_type=video_type, duration=video_duration, loop=video_loop, pad=video_pad, interpolate=video_interpolate, sync=True)
         image_txt = f'| Frames {len(output_images)} | Size {output_images[0].width}x{output_images[0].height}'
 
-    image_txt += f' | {util.dict2str(p.extra_generation_params)}'
     restore_pipeline()
-    debug(f'Control ready: {image_txt}')
+    debug(f'Ready: {image_txt}')
+
+    html_txt = f'<p>Ready {image_txt}</p>'
+    if len(info_txt) > 0:
+        html_txt = html_txt + infotext_to_html(info_txt[0])
+
     if is_generator:
-        yield (output_images, blended_image, f'Control ready {image_txt}', output_filename)
+        yield (output_images, blended_image, html_txt, output_filename)
     else:
-        yield (output_images, blended_image, f'Control ready {image_txt}', output_filename)
+        yield (output_images, blended_image, html_txt, output_filename)
         return

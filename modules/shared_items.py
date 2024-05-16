@@ -85,11 +85,11 @@ def get_pipelines():
         }
         pipelines.update(onnx_pipelines)
 
+    # items that may rely on diffusers dev version
     if hasattr(diffusers, 'StableCascadeCombinedPipeline'):
         pipelines['Stable Cascade'] = getattr(diffusers, 'StableCascadeCombinedPipeline', None)
-
-    from modules.sd_hijack_pixart import PixArtSigmaPipeline
-    pipelines['PixArt-Sigma'] = PixArtSigmaPipeline
+    if hasattr(diffusers, 'PixArtSigmaPipeline'):
+        pipelines['PixArt-Sigma'] = getattr(diffusers, 'PixArtSigmaPipeline', None)
 
     for k, v in pipelines.items():
         if k != 'Autodetect' and v is None:

@@ -433,7 +433,7 @@ options_templates.update(options_section(('cuda', "Compute Settings"), {
     "torch_gc_threshold": OptionInfo(80, "Memory usage threshold for GC", gr.Slider, {"minimum": 0, "maximum": 100, "step": 1}),
 
     "cuda_compile_sep": OptionInfo("<h2>Model Compile</h2>", "", gr.HTML),
-    "cuda_compile": OptionInfo([] if not cmd_opts.use_openvino else ["Model", "VAE", "Upscaler"], "Compile Model", gr.CheckboxGroup, {"choices": ["Model", "VAE", "Text Encoder", "Upscaler"]}),
+    "cuda_compile": OptionInfo([] if not cmd_opts.use_openvino else ["Model", "VAE"], "Compile Model", gr.CheckboxGroup, {"choices": ["Model", "VAE", "Text Encoder", "Upscaler"]}),
     "cuda_compile_backend": OptionInfo("none" if not cmd_opts.use_openvino else "openvino_fx", "Model compile backend", gr.Radio, {"choices": ['none', 'inductor', 'cudagraphs', 'aot_ts_nvfuser', 'hidet', 'migraphx', 'ipex', 'onediff', 'stable-fast', 'deep-cache', 'olive-ai', 'openvino_fx']}),
     "cuda_compile_mode": OptionInfo("default", "Model compile mode", gr.Radio, {"choices": ['default', 'reduce-overhead', 'max-autotune', 'max-autotune-no-cudagraphs']}),
     "cuda_compile_fullgraph": OptionInfo(True if not cmd_opts.use_openvino else False, "Model compile fullgraph"),
@@ -512,6 +512,7 @@ options_templates.update(options_section(('advanced', "Inference Settings"), {
 
 options_templates.update(options_section(('diffusers', "Diffusers Settings"), {
     "diffusers_pipeline": OptionInfo('Autodetect', 'Diffusers pipeline', gr.Dropdown, lambda: {"choices": list(shared_items.get_pipelines()) }),
+    "diffuser_cache_config": OptionInfo(True, "Use cached model config when available"),
     "diffusers_move_base": OptionInfo(False, "Move base model to CPU when using refiner"),
     "diffusers_move_unet": OptionInfo(False, "Move base model to CPU when using VAE"),
     "diffusers_move_refiner": OptionInfo(False, "Move refiner model to CPU when not in use"),
@@ -551,6 +552,7 @@ options_templates.update(options_section(('system-paths', "System Paths"), {
     "lora_dir": OptionInfo(os.path.join(paths.models_path, 'Lora'), "Folder with LoRA network(s)", folder=True),
     "lyco_dir": OptionInfo(os.path.join(paths.models_path, 'LyCORIS'), "Folder with LyCORIS network(s)", gr.Text, {"visible": False}),
     "styles_dir": OptionInfo(os.path.join(paths.data_path, 'styles.csv'), "File or Folder with user-defined styles", folder=True),
+    "wildcards_dir": OptionInfo(os.path.join(paths.models_path, 'wildcards'), "Folder with user-defined wildcards", folder=True),
     "embeddings_dir": OptionInfo(os.path.join(paths.models_path, 'embeddings'), "Folder with textual inversion embeddings", folder=True),
     "hypernetwork_dir": OptionInfo(os.path.join(paths.models_path, 'hypernetworks'), "Folder with Hypernetwork models", folder=True),
     "control_dir": OptionInfo(os.path.join(paths.models_path, 'control'), "Folder with Control models", folder=True),
@@ -701,11 +703,12 @@ options_templates.update(options_section(('sampler-params', "Sampler Settings"),
     # managed from ui.py for backend diffusers
     "schedulers_sep_diffusers": OptionInfo("<h2>Diffusers specific config</h2>", "", gr.HTML),
     "schedulers_dpm_solver": OptionInfo("sde-dpmsolver++", "DPM solver algorithm", gr.Radio, {"choices": ['dpmsolver++', 'sde-dpmsolver++']}),
-    "schedulers_beta_schedule": OptionInfo("default", "Beta schedule", gr.Radio, {"choices": ['default', 'linear', 'scaled_linear', 'squaredcos_cap_v2']}),
+    "schedulers_beta_schedule": OptionInfo("default", "Beta schedule", gr.Dropdown, {"choices": ['default', 'linear', 'scaled_linear', 'squaredcos_cap_v2']}),
     'schedulers_beta_start': OptionInfo(0, "Beta start", gr.Slider, {"minimum": 0, "maximum": 1, "step": 0.00001}),
     'schedulers_beta_end': OptionInfo(0, "Beta end", gr.Slider, {"minimum": 0, "maximum": 1, "step": 0.00001}),
-    "schedulers_timestep_spacing": OptionInfo("default", "Timestep spacing", gr.Radio, {"choices": ['default', 'linspace', 'leading', 'trailing']}),
+    "schedulers_timestep_spacing": OptionInfo("default", "Timestep spacing", gr.Dropdown, {"choices": ['default', 'linspace', 'leading', 'trailing']}),
     'schedulers_timesteps_range': OptionInfo(1000, "Timesteps range", gr.Slider, {"minimum": 250, "maximum": 4000, "step": 1}),
+    'schedulers_timesteps': OptionInfo('', "Timesteps"),
     "schedulers_rescale_betas": OptionInfo(False, "Rescale betas with zero terminal SNR", gr.Checkbox),
 
     # managed from ui.py for backend original k-diffusion
@@ -742,9 +745,16 @@ options_templates.update(options_section(('postprocessing', "Postprocessing"), {
 
     "postprocessing_sep_face_restoration": OptionInfo("<h2>Face Restoration</h2>", "", gr.HTML),
     "face_restoration_model": OptionInfo("Face HiRes", "Face restoration model", gr.Radio, lambda: {"choices": [x.name() for x in face_restorers]}),
+    "facehires_sep": OptionInfo("<h2>Face restore</h2>", "", gr.HTML),
+    "facehires_conf": OptionInfo(0.6, "Min confidence", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.05}),
+    "facehires_max": OptionInfo(5, "Max faces", gr.Slider, {"minimum": 1, "maximum": 10, "step": 1}),
+    "facehires_iou": OptionInfo(0.5, "Max face overlap", gr.Slider, {"minimum": 0, "maximum": 1.0, "step": 0.05}),
+    "facehires_min_size": OptionInfo(0, "Min face size", gr.Slider, {"minimum": 0, "maximum": 1024, "step": 1}),
+    "facehires_max_size": OptionInfo(0, "Max face size", gr.Slider, {"minimum": 0, "maximum": 1024, "step": 1}),
+    "facehires_padding": OptionInfo(10, "Face padding", gr.Slider, {"minimum": 0, "maximum": 100, "step": 1}),
+    "face_restoration_unload": OptionInfo(False, "Move model to CPU when complete"),
     "facehires_strength": OptionInfo(0.0, "Face HiRes strength", gr.Slider, {"minimum": 0, "maximum": 1, "step": 0.01}),
     "code_former_weight": OptionInfo(0.2, "CodeFormer weight parameter", gr.Slider, {"minimum": 0, "maximum": 1, "step": 0.01}),
-    "face_restoration_unload": OptionInfo(False, "Move model to CPU when complete"),
 
     "postprocessing_sep_upscalers": OptionInfo("<h2>Upscaling</h2>", "", gr.HTML),
     "upscaler_unload": OptionInfo(False, "Unload upscaler after processing"),
@@ -814,7 +824,9 @@ options_templates.update(options_section(('extra_networks', "Extra Networks"), {
     "lora_fuse_diffusers": OptionInfo(False if not cmd_opts.use_openvino else True, "LoRA use merge when using alternative method"),
     "lora_in_memory_limit": OptionInfo(1 if not cmd_opts.use_openvino else 0, "LoRA memory cache", gr.Slider, {"minimum": 0, "maximum": 24, "step": 1}),
     "lora_functional": OptionInfo(False, "Use Kohya method for handling multiple LoRA", gr.Checkbox, { "visible": False }),
+    "hypernetwork_enabled": OptionInfo(False, "Enable Hypernetwork support"),
     "sd_hypernetwork": OptionInfo("None", "Add hypernetwork to prompt", gr.Dropdown, { "choices": ["None"], "visible": False }),
+    "wildcards_enabled": OptionInfo(True, "Enable file wildcards support"),
 }))
 
 options_templates.update(options_section((None, "Hidden options"), {
@@ -916,7 +928,7 @@ class Options:
                     if self.data_labels[k].default != v:
                         diff[k] = v
                 else:
-                    if k not in compatibility_opts:
+                    if k not in compatibility_opts and not k.startswith('uiux_'):
                         unused_settings.append(k)
                     diff[k] = v
             writefile(diff, filename, silent=silent)

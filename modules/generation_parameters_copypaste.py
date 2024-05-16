@@ -218,9 +218,16 @@ def parse_generation_parameters(infotext, no_prompt=False):
     params_idx = sanitized.find(f'{first_param}:') if first_param else -1
     negative_idx = infotext.find("Negative prompt:")
 
-    prompt = infotext[:params_idx] if negative_idx == -1 else infotext[:negative_idx] # prompt can be with or without negative prompt
-    negative = infotext[negative_idx:params_idx] if negative_idx >= 0 else ''
-    negative = negative.strip().strip(',')
+    if negative_idx == -1: # prompt can be without negative prompt
+        prompt = infotext[:params_idx] if params_idx > 0 else infotext
+    else:
+        prompt = infotext[:negative_idx]
+    if prompt.startswith('Steps: '):
+        prompt = ''
+    if negative_idx >= 0:
+        negative = infotext[negative_idx:params_idx] if params_idx > 0 else infotext[negative_idx:]
+    else:
+        negative = ''
 
     for k, v in params.copy().items(): # avoid dict-has-changed
         if len(v) > 0 and v[0] == '"' and v[-1] == '"':
@@ -240,8 +247,8 @@ def parse_generation_parameters(infotext, no_prompt=False):
         else:
             params[k] = v
     if not no_prompt:
-        params["Prompt"] = prompt.replace('Prompt:', '').strip()
-        params["Negative prompt"] = negative.replace('Negative prompt:', '').strip()
+        params["Prompt"] = prompt.replace('Prompt:', '').strip(' ,\n')
+        params["Negative prompt"] = negative.replace('Negative prompt:', '').strip(' ,\n')
     debug(f"Parse: {params}")
     return params
 

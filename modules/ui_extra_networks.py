@@ -43,8 +43,9 @@ card_list = '''
     <div class='card card-list' onclick={card_click} title='{name}' data-tab='{tabname}' data-page='{page}' data-name='{name}' data-filename='{filename}' data-tags='{tags}' data-mtime='{mtime}' data-size='{size}' data-search='{search}'>
         <div style='display: flex'>
             <span class='details' title="Get details" onclick="showCardDetails(event)">&#x1f6c8;</span>&nbsp;
-            <div class='name'>{title}</div>&nbsp;
-            <div class='tags tags-list'></div>
+            <div class='name' style='flex-flow: column'>{title}&nbsp;
+                <div class='tags tags-list'></div>
+            </div>
         </div>
     </div>
 '''
@@ -128,6 +129,9 @@ class ExtraNetworksPage:
     def refresh(self):
         pass
 
+    def patch(self, text: str, tabname: str):
+        return text.replace('~tabname', tabname)
+
     def create_xyz_grid(self):
         xyz_grid = [x for x in scripts.scripts_data if x.script_class.__module__ == "xyz_grid.py"][0].module
 
@@ -209,7 +213,7 @@ class ExtraNetworksPage:
     def create_page(self, tabname, skip = False):
         debug(f'EN create-page: {self.name}')
         if self.page_time > refresh_time and len(self.html) > 0: # cached page
-            return self.html
+            return self.patch(self.html, tabname)
         self_name_id = self.name.replace(" ", "_")
         if skip:
             return f"<div id='{tabname}_{self_name_id}_subdirs' class='extra-network-subdirs'></div><div id='{tabname}_{self_name_id}_cards' class='extra-network-cards'>Extra network page not ready<br>Click refresh to try again</div>"
@@ -267,11 +271,11 @@ class ExtraNetworksPage:
             htmls.append(self.create_html(item, tabname))
         self.html += ''.join(htmls)
         self.page_time = time.time()
-        self.html = f"<div id='{tabname}_{self_name_id}_subdirs' class='extra-network-subdirs'>{subdirs_html}</div><div id='{tabname}_{self_name_id}_cards' class='extra-network-cards'>{self.html}</div>"
+        self.html = f"<div id='~tabname_{self_name_id}_subdirs' class='extra-network-subdirs'>{subdirs_html}</div><div id='~tabname_{self_name_id}_cards' class='extra-network-cards'>{self.html}</div>"
         shared.log.debug(f"Extra networks: page='{self.name}' items={len(self.items)} subfolders={len(subdirs)} tab={tabname} folders={self.allowed_directories_for_previews()} list={self.list_time:.2f} thumb={self.preview_time:.2f} desc={self.desc_time:.2f} info={self.info_time:.2f} workers={shared.max_workers} sort={shared.opts.extra_networks_sort}")
         if len(self.missing_thumbs) > 0:
             threading.Thread(target=self.create_thumb).start()
-        return self.html
+        return self.patch(self.html, tabname)
 
     def list_items(self):
         raise NotImplementedError
@@ -436,7 +440,6 @@ def register_page(page: ExtraNetworksPage):
 
 def register_pages():
     from modules.ui_extra_networks_textual_inversion import ExtraNetworksPageTextualInversion
-    from modules.ui_extra_networks_hypernets import ExtraNetworksPageHypernetworks
     from modules.ui_extra_networks_checkpoints import ExtraNetworksPageCheckpoints
     from modules.ui_extra_networks_styles import ExtraNetworksPageStyles
     from modules.ui_extra_networks_vae import ExtraNetworksPageVAEs
@@ -444,29 +447,32 @@ def register_pages():
     register_page(ExtraNetworksPageCheckpoints())
     register_page(ExtraNetworksPageStyles())
     register_page(ExtraNetworksPageTextualInversion())
-    register_page(ExtraNetworksPageHypernetworks())
     register_page(ExtraNetworksPageVAEs())
+    if shared.opts.hypernetwork_enabled:
+        from modules.ui_extra_networks_hypernets import ExtraNetworksPageHypernetworks
+        register_page(ExtraNetworksPageHypernetworks())
 
 
 def get_pages(title=None):
+    visible = shared.opts.extra_networks
     pages = []
-    if 'All' in shared.opts.extra_networks:
-        pages = shared.extra_networks
-    else:
-        titles = [page.title for page in shared.extra_networks]
-        if title is None:
-            for page in shared.opts.extra_networks:
-                try:
-                    idx = titles.index(page)
-                    pages.append(shared.extra_networks[idx])
-                except ValueError:
-                    continue
-        else:
+    if 'All' in visible or visible == []: # default en sort order
+        visible = ['Model', 'Lora', 'Style', 'Embedding', 'VAE', 'Hypernetwork']
+
+    titles = [page.title for page in shared.extra_networks]
+    if title is None:
+        for page in visible:
             try:
-                idx = titles.index(title)
+                idx = titles.index(page)
                 pages.append(shared.extra_networks[idx])
             except ValueError:
-                pass
+                continue
+    else:
+        try:
+            idx = titles.index(title)
+            pages.append(shared.extra_networks[idx])
+        except ValueError:
+            pass
     return pages
 
 
@@ -624,7 +630,7 @@ def create_ui(container, button_parent, tabname, skip_indexing = False):
         for page in get_pages():
             page.create_page(ui.tabname, skip_indexing)
             with gr.Tab(page.title, id=page.title.lower().replace(" ", "_"), elem_classes="extra-networks-tab") as tab:
-                page_html = gr.HTML(page.html, elem_id=f'{tabname}{page.name}_extra_page', elem_classes="extra-networks-page")
+                page_html = gr.HTML(page.patch(page.html, tabname), elem_id=f'{tabname}{page.name}_extra_page', elem_classes="extra-networks-page")
                 ui.pages.append(page_html)
                 tab.select(ui_tab_change, _js="getENActivePage", inputs=[ui.button_details], outputs=[ui.button_scan, ui.button_save, ui.button_model])
     if shared.cmd_opts.profile:
@@ -839,29 +845,27 @@ def create_ui(container, button_parent, tabname, skip_indexing = False):
     def ui_refresh_click(title):
         pages = []
         for page in get_pages():
-            if title is None or title == '' or title == page.title or len(page.html) == 0:
-                page.page_time = 0
-                page.refresh_time = 0
-                page.refresh()
-                page.create_page(ui.tabname)
-                shared.log.debug(f"Refreshing Extra networks: page='{page.title}' items={len(page.items)} tab={ui.tabname}")
+            page.page_time = 0
+            page.refresh_time = 0
+            page.refresh()
+            page.create_page(ui.tabname)
+            shared.log.debug(f"Refreshing Extra networks: page='{page.title}' items={len(page.items)} tab={ui.tabname}")
             pages.append(page.html)
-        ui.search.update(value = ui.search.value)
+        ui.search.update(title)
         return pages
 
     def ui_view_cards(title):
         pages = []
         for page in get_pages():
-            if title is None or title == '' or title == page.title or len(page.html) == 0:
-                shared.opts.extra_networks_view = page.view
-                # shared.opts.save(shared.config_filename)
-                page.view = 'gallery' if page.view == 'list' else 'list'
-                page.card = card_full if page.view == 'gallery' else card_list
-                page.html = ''
-                page.create_page(ui.tabname)
-                shared.log.debug(f"Refreshing Extra networks: page='{page.title}' items={len(page.items)} tab={ui.tabname} view={page.view}")
+            shared.opts.extra_networks_view = page.view
+            # shared.opts.save(shared.config_filename)
+            page.view = 'gallery' if page.view == 'list' else 'list'
+            page.card = card_full if page.view == 'gallery' else card_list
+            page.html = ''
+            page.create_page(ui.tabname)
+            shared.log.debug(f"Refreshing Extra networks: page='{page.title}' items={len(page.items)} tab={ui.tabname} view={page.view}")
             pages.append(page.html)
-        ui.search.update(value = ui.search.value)
+        ui.search.update(title)
         return pages
 
     def ui_scan_click(title):

@@ -1,26 +1,6 @@
 # Change Log for SD.Next
 
-## Pending
-
-### requires `diffusers-0.28.0.dev0`
-
-- PixArt-Σ
-- IP adapter masking
-- InstantStyle
-- <https://github.com/huggingface/diffusers/issues/7902>
-
-### Note
-
-This version of [SD.Next](https://github.com/vladmandic/automatic) ships with a preview of the new [ModernUI](https://github.com/BinaryQuantumSoul/sdnext-modernui)  
-For details on how to enable and use it, see [Home](https://github.com/BinaryQuantumSoul/sdnext-modernui) and [WiKi](https://github.com/vladmandic/automatic/wiki/Themes)  
-ModernUI is still in early development and not all features are available yet, please report [issues and feedback](https://github.com/BinaryQuantumSoul/sdnext-modernui/issues)  
-Thanks to @BinaryQuantumSoul for his hard work on this project!
-
-*Note*: [SD.Next](https://github.com/vladmandic/automatic) is no longer marked as a fork of [A1111](https://github.com/AUTOMATIC1111/stable-diffusion-webui/) and github project has been fully detached  
-Given huge number of changes with *+3443/-3342* commits diff (at the time of fork detach) over the past year, a completely different backend/engine and a change of focus,  
-it is time to give credit to original [author](https://github.com/auTOMATIC1111),  and move on!  
-
-## Update for 2024-05-10
+## Update for 2024-05-16
 
 - **Features**:
   - **ModernUI** preview of the new [ModernUI](https://github.com/BinaryQuantumSoul/sdnext-modernui)  
@@ -62,6 +42,15 @@ it is time to give credit to original [author](https://github.com/auTOMATIC1111)
     - *select image -> outpaint -> expand edges or zoom out to desired size*
     - *size -> mode: outpaint, method: nearest*
     - *mask -> inpaint masked only (if you want to keep original image)*
+  - **Wildcards**:
+    - native support of standard file-based wildcards in prompt  
+    - enabled by default, can be disabled in *settings -> extra networks* if you want to use 3rd party extension  
+    - wildcards folder is set in *settings -> system paths* and can be flat-file list or complex folder structure  
+    - matches strings `"__*__"` in positive and negative prompts  
+    - supports filename and path-based wildcards  
+    - supports nested wildcards (wildcard can refer to another wildcard, etc.)  
+    - supports wildcards files in one-choice per line or multiple choices per line separated by `|` format  
+    - *note*: this is in addition to previously released style-based wildcards  
 - **Models**:
   - **Load UNET**: ability to override/load external UNET to a selected model  
     Works similar to how VAE is selected and loaded: Set UNet folder and UNet model in settings  
@@ -112,10 +101,13 @@ it is time to give credit to original [author](https://github.com/auTOMATIC1111)
     - VAE Tiling enabled with *medvram* and *lowvram*
     - Disable Extract EMA by default
     - Disable forced VAE Slicing for *lowvram*
+  - Upscaler compile disabled by default with OpenVINO backend  
+  - Hypernetwork support disabled by default, can be enabled in settings  
 - **Improvements**:
   - Faster server startup  
   - More **ZLUDA** updates and optimizations, thanks @lshqqytiger
   - Styles apply wildcards to params
+  - Face HiRes fully configurable and higher quality when using high-resolution models  
   - Extra networks persistent sort order in settings  
   - Add option to make batch generations use fully random seed vs sequential  
   - Make metadata in full screen viewer optional
@@ -124,7 +116,10 @@ it is time to give credit to original [author](https://github.com/auTOMATIC1111)
   - Updated all system requirements  
   - UI log monitor will auto-reconnect to server on server restart  
   - UI styles includes indicator for active styles  
-  - Secondary sampler add option "same as primary"
+  - UI reduce load on browser  
+  - Secondary sampler add option "same as primary"  
+  - Change attention mechanism on-the-fly without model reload, thanks @Disty0  
+  - Update stable-fast with support for torch 2.2.2 and 2.3.0, thanks @Aptronymist
   - Support controlnet manually downloads models in both standalone and diffusers format  
     For standalone, simply copy safetensors file to `models/control/controlnet` folder  
     For diffusers format, create folder with model name in `models/control/controlnet/`  
@@ -133,7 +128,12 @@ it is time to give credit to original [author](https://github.com/auTOMATIC1111)
   - Add *Euler SGM* variation (e.g. SGM Uniform), optimized for SDXL-Lightning models  
     *note*: you can use other samplers as well with SDXL-Lightning models  
   - Add *CMSI* sampler, optimized for consistency models  
-  - Add option *timestep spacing* to sampler settings  
+  - Add option *timestep spacing* to sampler settings and sampler section in main ui
+    Note: changing timestep spacing changes behavior of sampler and can help to make any sampler turbo/lightning compatibile
+  - Add option *timesteps* to manually set timesteps instead of relying on steps+spacing  
+    Additionally, presets from nVidia's align-you-steps reasearch are provided  
+    Result is that perfectly aligned steps can drastically reduce number of steps needed!  
+    For example, AIY preset alows DPM++2M to run in ~10 steps with quality equallying ~30 steps!  
 - **IPEX**, thanks @Disty0
   - Update to *IPEX 2.1.20* on Linux  
     requires removing the venv folder to update properly  
@@ -166,9 +166,11 @@ it is time to give credit to original [author](https://github.com/auTOMATIC1111)
   - Control module restore button full functionality
   - Control improved handling with multiple control units and different init images
   - Control add correct metadata to image
+  - Time embeddings load part of model load
   - A1111 update OptionInfo properties
   - MOTD exception handling
   - Notifications not triggering
+  - Prompt cropping on copy
 
 ## Update for 2024-03-19
 

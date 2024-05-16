@@ -339,7 +339,10 @@ class FilenameGenerator:
 
         'sampler': lambda self: self.p and self.p.sampler_name,
         'seed': lambda self: self.seed and str(self.seed) or '',
-        'steps': lambda self: self.p and self.p.steps,
+        'steps': lambda self: self.p and getattr(self.p, 'steps', 0),
+        'cfg': lambda self: self.p and getattr(self.p, 'cfg_scale', 0),
+        'clip_skip': lambda self: self.p and getattr(self.p, 'clip_skip', 0),
+        'denoising': lambda self: self.p and getattr(self.p, 'denoising_strength', 0),
         'styles': lambda self: self.p and ", ".join([style for style in self.p.styles if not style == "None"]) or "None",
         'uuid': lambda self: str(uuid.uuid4()),
     }
@@ -632,6 +635,8 @@ def save_image(image, path, basename='', seed=None, prompt=None, extension=share
         forced_filename += suffix if suffix is not None else ''
         filename = os.path.join(path, f"{forced_filename}.{extension}") if basename == '' else os.path.join(path, f"{basename}-{forced_filename}.{extension}")
     pnginfo = existing_info or {}
+    if info is None:
+        info = image.info.get(pnginfo_section_name, '')
     if info is not None:
         pnginfo[pnginfo_section_name] = info
     params = script_callbacks.ImageSaveParams(image, p, filename, pnginfo)
@@ -644,7 +649,8 @@ def save_image(image, path, basename='', seed=None, prompt=None, extension=share
     # callbacks
     script_callbacks.before_image_saved_callback(params)
     exifinfo = params.pnginfo.get('UserComment', '')
-    exifinfo = (exifinfo + ', ' if len(exifinfo) > 0 else '') + params.pnginfo.get(pnginfo_section_name, '')
+    exifinfo = exifinfo + ', ' if len(exifinfo) > 0 else ''
+    exifinfo += params.pnginfo.get(pnginfo_section_name, '')
     filename, extension = os.path.splitext(params.filename)
     filename_txt = f"{filename}.txt" if shared.opts.save_txt and len(exifinfo) > 0 else None
     save_queue.put((params.image, filename, extension, params, exifinfo, filename_txt)) # actual save is executed in a thread that polls data from queue
@@ -743,9 +749,7 @@ def safe_decode_string(s: bytes):
 
 def read_info_from_image(image: Image, watermark: bool = False):
     items = image.info or {}
-    geninfo = items.pop('parameters', None)
-    if geninfo is None:
-        geninfo = items.pop('UserComment', None)
+    geninfo = items.pop('parameters', None) or items.pop('UserComment', None)
     if geninfo is not None and len(geninfo) > 0:
         if 'UserComment' in geninfo:
             geninfo = geninfo['UserComment']
