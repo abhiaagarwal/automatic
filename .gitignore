@@ -66,3 +66,5 @@ cache
 !/models/VAE-approx/model.pt
 !/models/Reference
 !/models/Reference/**/*
+
+/config

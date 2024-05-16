@@ -26,11 +26,12 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     --mount=type=cache,target=/root/.cache/uv \
     uv pip install --extra-index-url https://download.pytorch.org/whl/cu121 torch==${TORCH_VERSION}+cu121 torchvision torchaudio triton xformers && \
     uv pip install https://github.com/chengzeyi/stable-fast/releases/download/v1.0.5/stable_fast-1.0.5+torch230cu121-cp310-cp310-manylinux2014_x86_64.whl && \
+    uv pip install git+https://github.com/huggingface/diffusers.git git+https://github.com/huggingface/transformers && \
     uv pip install -r requirements.txt && \
     uv pip install --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/ onnx onnxruntime-gpu && \
     uv pip install tensorflow bitsandbytes DeepCache git+https://github.com/openai/CLIP.git && \
     uv pip install tensorrt --no-build-isolation && \
-    uv pip install -f https://github.com/siliconflow/oneflow_releases/releases/expanded_assets/community_cu121 oneflow && \
+    uv pip install --pre -f https://github.com/siliconflow/oneflow_releases/releases/expanded_assets/community_cu121 oneflow && \
     uv pip install --pre git+https://github.com/siliconflow/onediff.git
 
 # RUN DS_BUILD_OPS=1 pip install deepspeed 
