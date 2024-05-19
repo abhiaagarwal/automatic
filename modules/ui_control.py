@@ -46,7 +46,7 @@ def generate_click(job_id: str, active_tab: str, *args):
         time.sleep(0.01)
     from modules.control.run import control_run
     debug(f'Control: tab="{active_tab}" job={job_id} args={args}')
-    shared.state.begin('control')
+    shared.state.begin('Generate')
     progress.add_task_to_queue(job_id)
     with call_queue.queue_lock:
         yield [None, None, None, None, 'Control: starting']
@@ -608,4 +608,5 @@ def create_ui(_blocks: gr.Blocks=None):
                     run_test_adapters_btn.click(fn=test_adapters, inputs=[prompt, negative, input_image], outputs=[preview_process, output_image, output_video, output_gallery])
                     run_test_lite_btn.click(fn=test_lite, inputs=[prompt, negative, input_image], outputs=[preview_process, output_image, output_video, output_gallery])
 
+    ui_extra_networks.setup_ui(extra_networks_ui, output_gallery)
     return [(control_ui, 'Control', 'control')]

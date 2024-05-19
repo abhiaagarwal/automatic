@@ -1,6 +1,6 @@
 # Change Log for SD.Next
 
-## Update for 2024-05-16
+## Update for 2024-05-17
 
 - **Features**:
   - **ModernUI** preview of the new [ModernUI](https://github.com/BinaryQuantumSoul/sdnext-modernui)  
@@ -105,7 +105,6 @@
   - Hypernetwork support disabled by default, can be enabled in settings  
 - **Improvements**:
   - Faster server startup  
-  - More **ZLUDA** updates and optimizations, thanks @lshqqytiger
   - Styles apply wildcards to params
   - Face HiRes fully configurable and higher quality when using high-resolution models  
   - Extra networks persistent sort order in settings  
@@ -120,6 +119,10 @@
   - Secondary sampler add option "same as primary"  
   - Change attention mechanism on-the-fly without model reload, thanks @Disty0  
   - Update stable-fast with support for torch 2.2.2 and 2.3.0, thanks @Aptronymist
+  - Add torch *cudaMallocAsync* in compute options  
+    Can improve memory utilization on compatible GPUs (RTX and newer)  
+  - Torch dynamic profiling  
+    You can enable/disable full torch profiling in settings top menu on-the-fly  
   - Support controlnet manually downloads models in both standalone and diffusers format  
     For standalone, simply copy safetensors file to `models/control/controlnet` folder  
     For diffusers format, create folder with model name in `models/control/controlnet/`  
@@ -131,7 +134,7 @@
   - Add option *timestep spacing* to sampler settings and sampler section in main ui
     Note: changing timestep spacing changes behavior of sampler and can help to make any sampler turbo/lightning compatibile
   - Add option *timesteps* to manually set timesteps instead of relying on steps+spacing  
-    Additionally, presets from nVidia's align-you-steps reasearch are provided  
+    Additionally, presets from nVidias align-you-steps reasearch are provided  
     Result is that perfectly aligned steps can drastically reduce number of steps needed!  
     For example, AIY preset alows DPM++2M to run in ~10 steps with quality equallying ~30 steps!  
 - **IPEX**, thanks @Disty0
@@ -140,9 +143,14 @@
   - Removed 1024x1024 workaround  
   - Disable ipexrun by default, set `IPEXRUN=True` if you want to use `ipexrun`  
 - **ROCm**, thanks @Disty0  
+  - Add support for ROCm 6.1 nighthly builds  
   - Switch to stable branch of PyTorch  
   - Compatibility improvenments  
   - Add **MIGraphX** torch compile engine  
+- **ZLUDA**, thanks @lshqqytiger
+  - Rewrite ZLUDA installer
+  - ZLUDA **v3.8** updates: Runtime API support
+  - Add `--reinstall-zluda` (to download the latest ZLUDA)
 - **Fixes**:
   - Update requirements
   - Prompt params parser
@@ -198,7 +206,7 @@ What else?
 - **Reference models**: *Networks -> Models -> Reference*: All reference models now come with recommended settings that can be auto-applied if desired  
 - **Styles**: Not just for prompts! Styles can apply *generate parameters* as templates and can be used to *apply wildcards* to prompts  
 improvements, Additional API endpoints  
-- Given the high interest in [ZLUDA](https://github.com/vosen/ZLUDA) engine introduced in last release we've updated much more flexible/automatic install procedure (see [wiki](https://github.com/vladmandic/automatic/wiki/ZLUDA) for details)  
+- Given the high interest in [ZLUDA](https://github.com/vosen/ZLUDA) engine introduced in last release weve updated much more flexible/automatic install procedure (see [wiki](https://github.com/vladmandic/automatic/wiki/ZLUDA) for details)  
 - Plus Additional Improvements such as: Smooth tiling, Refine/HiRes workflow improvements, Control workflow  
 
 Further details:  
@@ -330,7 +338,7 @@ Further details:
   - Fully functional: SD15 + SD15, SDXL + SDXL, SDXL + SDXL-R
   - Functional, but result is not as good: SD15 + SDXL, SDXL + SD15, SD15 + SDXL-R
 - **SDXL Lightning** models just-work, just makes sure to set CFG Scale to 0  
-    and choose a best-suited sampler, it may not be the one you're used to (e.g. maybe even basic Euler)  
+    and choose a best-suited sampler, it may not be the one youre used to (e.g. maybe even basic Euler)  
 - **Fixes**
   - improve *model cpu offload* compatibility
   - improve *model sequential offload* compatibility
@@ -358,7 +366,7 @@ Further details:
 
 ## Update for 2024-02-22
 
-Only 3 weeks since last release, but here's another feature-packed one!
+Only 3 weeks since last release, but heres another feature-packed one!
 This time release schedule was shorter as we wanted to get some of the fixes out faster.
 
 ### Highlights 2024-02-22

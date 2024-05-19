@@ -191,7 +191,7 @@ def decode_first_stage(model, x, full_quality=True):
         x_sample = torch.zeros((len(x), 3, x.shape[2] * 8, x.shape[3] * 8), dtype=devices.dtype_vae, device=devices.device)
         return x_sample
     prev_job = shared.state.job
-    shared.state.job = 'vae'
+    shared.state.job = 'VAE'
     with devices.autocast(disable = x.dtype==devices.dtype_vae):
         try:
             if full_quality:
@@ -501,6 +501,7 @@ def set_latents(p):
     shared.sd_model.prepare_latents = dummy_prepare_latents # stop diffusers processing latents again
     return latents
 
+
 def apply_circular(enable, model):
     try:
         for layer in [layer for layer in model.unet.modules() if type(layer) is torch.nn.Conv2d]:
@@ -510,6 +511,7 @@ def apply_circular(enable, model):
     except Exception as e:
         debug(f"Diffusers tiling failed: {e}")
 
+
 def save_intermediate(p, latents, suffix):
     for i in range(len(latents)):
         from modules.processing import create_infotext
@@ -517,6 +519,7 @@ def save_intermediate(p, latents, suffix):
         decoded = processing_vae.vae_decode(latents=latents, model=shared.sd_model, output_type='pil', full_quality=p.full_quality)
         for j in range(len(decoded)):
             images.save_image(decoded[j], path=p.outpath_samples, basename="", seed=p.seeds[i], prompt=p.prompts[i], extension=shared.opts.samples_format, info=info, p=p, suffix=suffix)
+
 
 def update_sampler(p, sd_model, second_pass=False):
     sampler_selection = p.hr_sampler_name if second_pass else p.sampler_name

@@ -498,13 +498,12 @@ def check_torch():
             error = None
             from modules import zluda_installer
             try:
-                if args.use_zluda_dnn:
-                    if zluda_installer.check_dnn_dependency():
-                        zluda_installer.enable_dnn()
-                    else:
-                        log.warning("Couldn't find the required dependency of ZLUDA DNN.")
-                zluda_installer.install()
-                zluda_path = zluda_installer.find()
+                if args.reinstall_zluda:
+                    zluda_installer.uninstall()
+                if args.experimental:
+                    zluda_installer.enable_runtime_api()
+                zluda_path = zluda_installer.get_path()
+                zluda_installer.install(zluda_path)
                 zluda_installer.make_copy(zluda_path)
             except Exception as e:
                 error = e
@@ -526,9 +525,11 @@ def check_torch():
             log.info('Using CPU-only torch')
             torch_command = os.environ.get('TORCH_COMMAND', 'torch torchvision')
         else:
-            if rocm_ver is None or rocm_ver == "6.1": # assume the latest if version check fails + torch for 6.1 doesn't exist yet
+            if rocm_ver is None: # assume the latest if version check fails
                 torch_command = os.environ.get('TORCH_COMMAND', 'torch torchvision --index-url https://download.pytorch.org/whl/rocm6.0')
-            elif int(rocm_ver.rsplit(".")[0]) <= 4 or (int(rocm_ver.rsplit(".")[0]) == 5 and int(rocm_ver.rsplit(".")[1]) <= 5): # oldest supported version is 5.5
+            elif rocm_ver == "6.1": # need nightlies
+                torch_command = os.environ.get('TORCH_COMMAND', 'torch torchvision --pre --index-url https://download.pytorch.org/whl/nightly/rocm6.1')
+            elif float(rocm_ver) < 5.5: # oldest supported version is 5.5
                 log.warning(f"Unsupported ROCm version detected: {rocm_ver}")
                 log.warning("Minimum supported ROCm version is 5.5")
                 torch_command = os.environ.get('TORCH_COMMAND', 'torch torchvision --index-url https://download.pytorch.org/whl/rocm5.5')
@@ -875,7 +876,6 @@ def set_environment():
     os.environ.setdefault('K_DIFFUSION_USE_COMPILE', '0')
     os.environ.setdefault('NUMEXPR_MAX_THREADS', '16')
     os.environ.setdefault('PYTHONHTTPSVERIFY', '0')
-    os.environ.setdefault('PYTORCH_CUDA_ALLOC_CONF', 'garbage_collection_threshold:0.8,max_split_size_mb:512')
     os.environ.setdefault('SAFETENSORS_FAST_GPU', '1')
     os.environ.setdefault('TF_CPP_MIN_LOG_LEVEL', '2')
     os.environ.setdefault('TF_ENABLE_ONEDNN_OPTS', '0')
@@ -885,6 +885,11 @@ def set_environment():
     os.environ.setdefault('DO_NOT_TRACK', '1')
     os.environ.setdefault('HF_HUB_CACHE', opts.get('hfcache_dir', os.path.join(os.path.expanduser('~'), '.cache', 'huggingface', 'hub')))
     log.debug(f'HF cache folder: {os.environ.get("HF_HUB_CACHE")}')
+    allocator = f'garbage_collection_threshold:{opts.get("torch_gc_threshold", 80)/100:0.2f},max_split_size_mb:512'
+    if opts.get("torch_malloc", "native") == 'cudaMallocAsync':
+        allocator += ',backend:cudaMallocAsync'
+    os.environ.setdefault('PYTORCH_CUDA_ALLOC_CONF', allocator)
+    log.debug(f'Torch allocator: "{allocator}"')
     if sys.platform == 'darwin':
         os.environ.setdefault('PYTORCH_ENABLE_MPS_FALLBACK', '1')
 
@@ -1058,6 +1063,7 @@ def add_args(parser):
     group.add_argument('--skip-env', default = os.environ.get("SD_SKIPENV",False), action='store_true', help = "Skips setting of env variables during startup, default: %(default)s")
     group.add_argument('--experimental', default = os.environ.get("SD_EXPERIMENTAL",False), action='store_true', help = "Allow unsupported versions of libraries, default: %(default)s")
     group.add_argument('--reinstall', default = os.environ.get("SD_REINSTALL",False), action='store_true', help = "Force reinstallation of all requirements, default: %(default)s")
+    group.add_argument('--reinstall-zluda', default = os.environ.get("SD_REINSTALL_ZLUDA",False), action='store_true', help = "Force reinstallation of ZLUDA, default: %(default)s")
     group.add_argument('--test', default = os.environ.get("SD_TEST",False), action='store_true', help = "Run test only and exit")
     group.add_argument('--version', default = False, action='store_true', help = "Print version information")
     group.add_argument('--ignore', default = os.environ.get("SD_IGNORE",False), action='store_true', help = "Ignore any errors and attempt to continue")

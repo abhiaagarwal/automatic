@@ -680,7 +680,7 @@ def set_diffuser_options(sd_model, vae = None, op: str = 'model'):
             if shared.opts.no_half_vae:
                 devices.dtype_vae = torch.float32
                 sd_model.vae.to(devices.dtype_vae)
-            shared.log.debug(f'Setting {op} VAE: upcast={sd_model.vae.config.get("force_upcast", None)}')
+            shared.log.debug(f'Setting {op} VAE: upcast={sd_model.vae.config.force_upcast}')
     if hasattr(sd_model, "enable_vae_slicing"):
         if shared.opts.diffusers_vae_slicing:
             shared.log.debug(f'Setting {op}: enable VAE slicing')
@@ -1487,7 +1487,7 @@ def reload_model_weights(sd_model=None, info=None, reuse_dict=False, op='model')
         return None
     orig_state = copy.deepcopy(shared.state)
     shared.state = shared_state.State()
-    shared.state.begin('load')
+    shared.state.begin('Load')
     if load_dict:
         shared.log.debug(f'Model dict: existing={sd_model is not None} target={checkpoint_info.filename} info={info}')
     else:

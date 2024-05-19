@@ -7,7 +7,7 @@ import urllib.request
 from typing import Union
 
 
-RELEASE = f"rel.{os.environ.get('ZLUDA_HASH', '2804604c29b5fa36deca9ece219d3970b61d4c27')}"
+RELEASE = f"rel.{os.environ.get('ZLUDA_HASH', '11cc5844514f93161e0e74387f04e2c537705a82')}"
 DLL_MAPPING = {
     'cublas.dll': 'cublas64_11.dll',
     'cusparse.dll': 'cusparse64_11.dll',
@@ -17,7 +17,7 @@ HIP_TARGETS = ['rocblas.dll', 'rocsolver.dll', 'hiprtc0507.dll',]
 ZLUDA_TARGETS = ('nvcuda.dll', 'nvml.dll',)
 
 
-def find() -> str:
+def get_path() -> str:
     return os.path.abspath(os.environ.get('ZLUDA', '.zluda'))
 
 
@@ -29,25 +29,7 @@ def find_hip_sdk() -> Union[str, None]:
     return os.environ.get('HIP_PATH', hip_path_default)
 
 
-def check_dnn_dependency() -> bool:
-    hip_path = os.environ.get("HIP_PATH", None)
-    if hip_path is None: # unable to check
-        return True
-    if os.path.exists(os.path.join(hip_path, 'bin', 'MIOpen.dll')):
-        return True
-    return False
-
-
-def enable_dnn() -> None:
-    global RELEASE # pylint: disable=global-statement
-    DLL_MAPPING['cudnn.dll'] = 'cudnn64_8.dll'
-    HIP_TARGETS.append('MIOpen.dll')
-    RELEASE = 'v3.8-pre2-dnn'
-
-
-def install() -> None:
-    zluda_path = find()
-
+def install(zluda_path: os.PathLike) -> None:
     if os.path.exists(zluda_path):
         return
 
@@ -62,6 +44,15 @@ def install() -> None:
                 info.filename = os.path.basename(info.filename)
                 archive.extract(info, '.zluda')
     os.remove('_zluda')
+
+
+def uninstall() -> None:
+    if os.path.exists('.zluda'):
+        shutil.rmtree('.zluda')
+
+
+def enable_runtime_api():
+    DLL_MAPPING['cudart.dll'] = 'cudart64_110.dll'
 
 
 def make_copy(zluda_path: os.PathLike) -> None:
