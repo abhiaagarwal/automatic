@@ -1,6 +1,6 @@
 # Change Log for SD.Next
 
-## Update for 2024-05-17
+## Update for 2024-05-22
 
 - **Features**:
   - **ModernUI** preview of the new [ModernUI](https://github.com/BinaryQuantumSoul/sdnext-modernui)  
@@ -59,12 +59,12 @@
     *Note*: if there is a `JSON` file with the same name as the model it will be used as Unet config, otherwise Unet config from currently loaded model will be used  
   - [PixArt-Σ](https://pixart-alpha.github.io/PixArt-sigma-project/)
     pixart-Σ is a high end diffusion Transformer model (DiT) with a T5 encoder/decoder capable of directly generating images at 4K resolution  
-    to use, simply select from *networks -> models -> PixArt-Σ*  
+    to use, simply select from *networks -> models -> reference -> PixArt-Σ*  
     *note*: this is a very large model at ~22GB  
     set parameters: *sampler: Default*  
   - [SDXS](https://github.com/IDKiro/sdxs)
     sdxs is an extremely fast 1-step generation consistency model that also uses TAESD as quick VAE out-of-the-box  
-    to use, simply select from *networks -> models -> SDXS*  
+    to use, simply select from *networks -> models -> reference -> SDXS*  
     set parameters: *sampler: CMSI, steps: 1, cfg_scale: 0.0*
   - [Hyper-SD](https://huggingface.co/ByteDance/Hyper-SD)  
     sd15 and sdxl 1-step, 2-step, 4-step and 8-step optimized models using lora  
@@ -123,6 +123,9 @@
     Can improve memory utilization on compatible GPUs (RTX and newer)  
   - Torch dynamic profiling  
     You can enable/disable full torch profiling in settings top menu on-the-fly  
+  - Prompt caching - if you use the same prompt multiple times, no need to re-parse and encode it  
+    Useful for batches as prompt processing is ~0.1sec on each pass  
+  - Enhance `SD_PROMPT_DEBUG` to show actual tokens used
   - Support controlnet manually downloads models in both standalone and diffusers format  
     For standalone, simply copy safetensors file to `models/control/controlnet` folder  
     For diffusers format, create folder with model name in `models/control/controlnet/`  
@@ -153,6 +156,7 @@
   - Add `--reinstall-zluda` (to download the latest ZLUDA)
 - **Fixes**:
   - Update requirements
+  - Installer automatically handle detached git states  
   - Prompt params parser
   - Allowing forcing LoRA loading method for some or all models
   - Image save without metadata
