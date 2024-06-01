@@ -1,10 +1,74 @@
 # Change Log for SD.Next
 
-## Update for 2024-05-22
+## Update for 2024-06-01
+
+- fix textual inversion loading
+- fix gallery mtime display
+- fix extra network scrollable area when using modernui
+- fix control prompts list handling
+- fix restore variation seed and strength
+- fix negative prompt parsing from metadata
+- fix stable cascade progress monitoring
+- fix variation seed with hires pass
+- add variation seed info to metadata
+- workaround for scale-by when using modernui
+- lock torch-directml version
+- improve xformers installer
+- improve ultralytics installer
+- improve triton installer
+- improve insightface installer
+- add dpm++ 1s and dpm++ 3m aliases for dpm++ 2m scheduler with different orders
+
+## Update for 2024-05-28
+
+### Highlights for 2024-05-28
+
+New [SD.Next](https://github.com/vladmandic/automatic) release has been baking in `dev` for a longer than usual, but changes are massive - about 350 commits for core and 300 for UI...
+
+Starting with the new UI - yup, this version ships with a *preview* of the new [ModernUI](https://github.com/BinaryQuantumSoul/sdnext-modernui)  
+For details on how to enable and use it, see [Home](https://github.com/BinaryQuantumSoul/sdnext-modernui) and [WiKi](https://github.com/vladmandic/automatic/wiki/Themes)  
+**ModernUI** is still in early development and not all features are available yet, please report [issues and feedback](https://github.com/BinaryQuantumSoul/sdnext-modernui/issues)  
+Thanks to @BinaryQuantumSoul for his hard work on this project!  
+
+*What else?*
+
+#### New built-in features
+
+- [PWA](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps) SD.Next is now installable as a web-app
+- **Gallery**: extremely fast built-in gallery viewer  
+  List, preview, search through all your images and videos!  
+- **HiDiffusion** allows generating very-high resolution images out-of-the-box using standard models  
+- **Perturbed-Attention Guidance** (PAG) enhances sample quality in addition to standard CFG scale  
+- **LayerDiffuse** simply create transparent (foreground-only) images  
+- **IP adapter masking** allows to use multiple input images for each segment of the input image  
+- IP adapter **InstantStyle** implementation  
+- **Token Downsampling** (ToDo) provides significant speedups with minimal-to-none quality loss  
+- **Samplers optimizations** that allow normal samplers to complete work in 1/3 of the steps!  
+  Yup, even popular DPM++2M can now run in 10 steps with quality equaling 30 steps using **AYS** presets  
+- Native **wildcards** support  
+- Improved built-in **Face HiRes**  
+- Better **outpainting**  
+- And much more...  
+  For details of above features and full list, see [Changelog](https://github.com/vladmandic/automatic/blob/dev/CHANGELOG.md)
+
+#### New models
+
+While still waiting for *Stable Diffusion 3.0*, there have been some significant models released in the meantime:
+
+- [PixArt-Σ](https://pixart-alpha.github.io/PixArt-sigma-project/), high end diffusion transformer model (*DiT*) capable of directly generating images at 4K resolution  
+- [SDXS](https://github.com/IDKiro/sdxs), extremely fast 1-step generation consistency model  
+- [Hyper-SD](https://huggingface.co/ByteDance/Hyper-SD), 1-step, 2-step, 4-step and 8-step optimized models  
+
+*Note*  
+[SD.Next](https://github.com/vladmandic/automatic) is no longer marked as a fork of [A1111](https://github.com/AUTOMATIC1111/stable-diffusion-webui/) and github project has been fully detached  
+Given huge number of changes with *+3443/-3342* commits diff (at the time of fork detach) over the past year,  
+a completely different backend/engine and a change of focus, it is time to give credit to original [author](https://github.com/auTOMATIC1111),  and move on!  
+
+### Full ChangeLog for 2024-05-28
 
 - **Features**:
   - **ModernUI** preview of the new [ModernUI](https://github.com/BinaryQuantumSoul/sdnext-modernui)  
-  - **PWA** [SD.Next](https://github.com/vladmandic/automatic) now also includes valid manifest making it installable as PWA
+  - [PWA](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps) SD.Next is now installable as a web-app and includes verified manifest  
   - **Gallery
   - **Gallery**: list, preview, search through all your images and videos!  
     Implemented as infinite-scroll with client-side-caching and lazy-loading while being fully async and non-blocking  
@@ -22,6 +86,10 @@
     Simply set *advanced -> attention guidance* and *advanced -> adaptive scaling*  
     Additional options are available in *settings -> inference settings -> pag*  
     *Note*: PAG has replaced SAG as attention guidance method in SD.Next  
+  - [LayerDiffuse](https://github.com/rootonchair/diffuser_layerdiffuse)
+    Create transparent images with foreground-only being generated  
+    Simply select from scripts -> apply to current model  
+    All necessary files will be auto-downloaded on first use  
   - **IP Adapter Masking**:  
     Powerful method of using masking with ip-adapters  
     When combined with multiple ip-adapters, it allows for different inputs guidance for each segment of the input image  
@@ -83,7 +151,7 @@
     (in addition to previously added `/sdapi/v1/preprocessors` and `/sdapi/v1/masking`)  
     example:
     > simple-control.py --prompt 'woman in the city' --sampler UniPC --steps 20  
-    > --input ~/generative/Samples/cutie-512.png --output /tmp/test.png --processed /tmp/proc.png  
+    > --input \~/generative/Samples/cutie-512.png --output /tmp/test.png --processed /tmp/proc.png  
     > --control 'Canny:Canny FP16:0.7, OpenPose:OpenPose FP16:0.8' --type controlnet  
     > --ipadapter 'Plus:~/generative/Samples/cutie-512.png:0.5'  
   - Add API endpoint `/sdapi/v1/vqa` and CLI util `cli/simple-vqa.py`
@@ -139,7 +207,7 @@
   - Add option *timesteps* to manually set timesteps instead of relying on steps+spacing  
     Additionally, presets from nVidias align-you-steps reasearch are provided  
     Result is that perfectly aligned steps can drastically reduce number of steps needed!  
-    For example, AIY preset alows DPM++2M to run in ~10 steps with quality equallying ~30 steps!  
+    For example, **AYS** preset alows DPM++2M to run in ~10 steps with quality equallying ~30 steps!  
 - **IPEX**, thanks @Disty0
   - Update to *IPEX 2.1.20* on Linux  
     requires removing the venv folder to update properly  

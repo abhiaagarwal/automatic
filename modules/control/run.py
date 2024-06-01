@@ -86,6 +86,13 @@ def control_run(units: List[unit.Unit] = [], inputs: List[Image.Image] = [], ini
     if mask is not None and input_type == 0:
         input_type = 1 # inpaint always requires control_image
 
+    if sampler_index is None:
+        shared.log.warning('Sampler: invalid')
+        sampler_index = 0
+    if hr_sampler_index is None:
+        shared.log.warning('Sampler: invalid')
+        hr_sampler_index = 0
+
     p = StableDiffusionProcessingControl(
         prompt = prompt,
         negative_prompt = negative,
@@ -128,7 +135,20 @@ def control_run(units: List[unit.Unit] = [], inputs: List[Image.Image] = [], ini
         outpath_samples=shared.opts.outdir_samples or shared.opts.outdir_control_samples,
         outpath_grids=shared.opts.outdir_grids or shared.opts.outdir_control_grids,
     )
-    processing.process_init(p)
+    # processing.process_init(p)
+    resize_mode_before = resize_mode_before if resize_name_before != 'None' and inputs is not None and len(inputs) > 0 else 0
+
+    # TODO monkey-patch for modernui missing tabs.select event
+    if selected_scale_tab_before == 0 and resize_name_before != 'None' and scale_by_before != 1 and inputs is not None and len(inputs) > 0:
+        shared.log.debug('Control: override resize mode=before')
+        selected_scale_tab_before = 1
+    if selected_scale_tab_after == 0 and resize_name_after != 'None' and scale_by_after != 1:
+        shared.log.debug('Control: override resize mode=after')
+        selected_scale_tab_after = 1
+    if selected_scale_tab_mask == 0 and resize_name_mask != 'None' and scale_by_mask != 1:
+        shared.log.debug('Control: override resize mode=mask')
+        selected_scale_tab_mask = 1
+
     # set initial resolution
     if resize_mode_before != 0 or inputs is None or inputs == [None]:
         p.width, p.height = width_before, height_before # pylint: disable=attribute-defined-outside-init
@@ -330,7 +350,7 @@ def control_run(units: List[unit.Unit] = [], inputs: List[Image.Image] = [], ini
                     video = cv2.VideoCapture(inputs)
                     if not video.isOpened():
                         yield terminate(f'Control: video open failed: path={inputs}')
-                        return
+                        return [], '', '', 'Error: video open failed'
                     frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
                     fps = int(video.get(cv2.CAP_PROP_FPS))
                     w, h = int(video.get(cv2.CAP_PROP_FRAME_WIDTH)), int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -341,7 +361,7 @@ def control_run(units: List[unit.Unit] = [], inputs: List[Image.Image] = [], ini
                     shared.log.debug(f'Control: input video: path={inputs} frames={frames} fps={fps} size={w}x{h} codec={codec}')
                 except Exception as e:
                     yield terminate(f'Control: video open failed: path={inputs} {e}')
-                    return
+                    return [], '', '', 'Error: video open failed'
 
             while status:
                 processed_image = None
@@ -355,7 +375,7 @@ def control_run(units: List[unit.Unit] = [], inputs: List[Image.Image] = [], ini
                     if shared.state.interrupted:
                         shared.state.interrupted = False
                         yield terminate('Control interrupted')
-                        return
+                        return [], '', '', 'Interrupted'
                     # get input
                     if isinstance(input_image, str):
                         try:
@@ -443,7 +463,7 @@ def control_run(units: List[unit.Unit] = [], inputs: List[Image.Image] = [], ini
                             pass
                         if any(img is None for img in processed_images):
                             yield terminate('Control: attempting process but output is none')
-                            return
+                            return [], '', '', 'Error: output is none'
                         if len(processed_images) > 1 and len(active_process) != len(active_model):
                             processed_image = [np.array(i) for i in processed_images]
                             processed_image = util.blend(processed_image) # blend all processed images into one
@@ -461,7 +481,7 @@ def control_run(units: List[unit.Unit] = [], inputs: List[Image.Image] = [], ini
                             p.init_images = processed_images
                         elif isinstance(selected_models, list) and len(processed_images) != len(selected_models):
                             yield terminate(f'Control: number of inputs does not match: input={len(processed_images)} models={len(selected_models)}')
-                            return
+                            return [], '', '', 'Error: number of inputs does not match'
                         elif selected_models is not None:
                             p.init_images = processed_image
                     else:
@@ -475,7 +495,7 @@ def control_run(units: List[unit.Unit] = [], inputs: List[Image.Image] = [], ini
                         debug(f'Control: process=None image={p.ref_image}')
                         if p.ref_image is None:
                             yield terminate('Control: attempting reference mode but image is none')
-                            return
+                            return [], '', '', 'Reference mode without image'
                     elif unit_type == 'controlnet' and input_type == 1: # Init image same as control
                         p.task_args['control_image'] = p.init_images # switch image and control_image
                         p.task_args['strength'] = p.denoising_strength
@@ -535,7 +555,7 @@ def control_run(units: List[unit.Unit] = [], inputs: List[Image.Image] = [], ini
                     if has_models:
                         if unit_type in ['controlnet', 't2i adapter', 'lite', 'xs'] and p.task_args.get('image', None) is None and getattr(p, 'init_images', None) is None:
                             yield terminate(f'Control: mode={p.extra_generation_params.get("Control mode", None)} input image is none')
-                            return
+                            return [], '', '', 'Error: Input image is none'
 
                     # resize mask
                     if mask is not None and resize_mode_mask != 0 and resize_name_mask != 'None':

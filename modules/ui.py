@@ -177,6 +177,7 @@ def create_ui(startup_timer = None):
         else:
             raise ValueError(f'bad options item type: {t} for key {key}')
         elem_id = f"setting_{key}"
+        dirty_indicator = None
 
         if not is_quicksettings:
             dirtyable_setting = gr.Group(elem_classes="dirtyable", visible=args.get("visible", True))
@@ -204,7 +205,8 @@ def create_ui(startup_timer = None):
 
         if res is not None and not is_quicksettings:
             res.change(fn=None, inputs=res, _js=f'(val) => markIfModified("{key}", val)')
-            dirty_indicator.click(fn=lambda: getattr(opts, key), outputs=res, show_progress=False)
+            if dirty_indicator is not None:
+                dirty_indicator.click(fn=lambda: getattr(opts, key), outputs=res, show_progress=False)
             dirtyable_setting.__exit__()
 
         return res
@@ -276,8 +278,8 @@ def create_ui(startup_timer = None):
         with gr.Row(elem_id="system_row"):
             restart_submit = gr.Button(value="Restart server", variant='primary', elem_id="restart_submit")
             shutdown_submit = gr.Button(value="Shutdown server", variant='primary', elem_id="shutdown_submit")
-            unload_sd_model = gr.Button(value='Unload checkpoint', variant='primary', elem_id="sett_unload_sd_model")
-            reload_sd_model = gr.Button(value='Reload checkpoint', variant='primary', elem_id="sett_reload_sd_model")
+            unload_sd_model = gr.Button(value='Unload model', variant='primary', elem_id="sett_unload_sd_model")
+            reload_sd_model = gr.Button(value='Reload model', variant='primary', elem_id="sett_reload_sd_model")
             enable_profiling = gr.Button(value='Start profiling', variant='primary', elem_id="enable_profiling")
 
         with gr.Tabs(elem_id="system") as system_tabs:
@@ -362,7 +364,7 @@ def create_ui(startup_timer = None):
             modules.sd_models.unload_model_weights(op='refiner')
 
         def reload_sd_weights():
-            modules.sd_models.reload_model_weights()
+            modules.sd_models.reload_model_weights(force=True)
 
         def switch_profiling():
             shared.cmd_opts.profile = not shared.cmd_opts.profile

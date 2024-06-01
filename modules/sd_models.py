@@ -610,6 +610,8 @@ def detect_pipeline(f: str, op: str = 'model', warning=True):
             if 'stable-cascade' in f.lower() or 'stablecascade' in f.lower() or 'wuerstchen3' in f.lower():
                 if shared.backend == shared.Backend.ORIGINAL:
                     warn(f'Model detected as Stable Cascade model, but attempting to load using backend=original: {op}={f} size={size} MB')
+                if devices.dtype == torch.float16:
+                    warn('Stable Cascade does not support Float16')
                 guess = 'Stable Cascade'
             if 'pixart_sigma' in f.lower():
                 if shared.backend == shared.Backend.ORIGINAL:
@@ -730,12 +732,7 @@ def set_diffuser_options(sd_model, vae = None, op: str = 'model'):
                 shared.opts.diffusers_move_refiner = False
                 shared.log.warning(f'Disabling {op} "Move model to CPU" since "Model CPU offload" is enabled')
             if not hasattr(sd_model, "_all_hooks") or len(sd_model._all_hooks) == 0: # pylint: disable=protected-access
-                if "Combined" in sd_model.__class__.__name__:
-                    # remove after new diffusers release:
-                    # https://github.com/huggingface/diffusers/pull/7471
-                    sd_model.enable_model_cpu_offload()
-                else:
-                    sd_model.enable_model_cpu_offload(device=devices.device)
+                sd_model.enable_model_cpu_offload(device=devices.device)
             else:
                 sd_model.maybe_free_model_hooks()
             sd_model.has_accelerate = True
@@ -754,10 +751,6 @@ def set_diffuser_options(sd_model, vae = None, op: str = 'model'):
                     cpu_offload(sd_model.vae, devices.device, offload_buffers=len(sd_model.vae._parameters) > 0) # pylint: disable=protected-access
                 else:
                     pass # do nothing if offload is already applied
-            elif "Combined" in sd_model.__class__.__name__:
-                # remove after new diffusers release:
-                # https://github.com/huggingface/diffusers/pull/7471
-                sd_model.enable_sequential_cpu_offload()
             else:
                 sd_model.enable_sequential_cpu_offload(device=devices.device)
             sd_model.has_accelerate = True
@@ -1314,6 +1307,9 @@ def set_diffuser_pipe(pipe, new_pipe_type):
             new_pipe = diffusers.AutoPipelineForImage2Image.from_pipe(pipe)
         elif new_pipe_type == DiffusersTaskType.INPAINTING:
             new_pipe = diffusers.AutoPipelineForInpainting.from_pipe(pipe)
+        else:
+            shared.log.error(f'Pipeline class change failed: type={new_pipe_type} pipeline={pipe.__class__.__name__}')
+            return pipe
     except Exception as e: # pylint: disable=unused-variable
         shared.log.warning(f'Pipeline class change failed: type={new_pipe_type} pipeline={pipe.__class__.__name__} {e}')
         return pipe
@@ -1493,7 +1489,7 @@ def load_model(checkpoint_info=None, already_loaded_state_dict=None, timer=None,
     shared.log.info(f'Model load finished: {memory_stats()} cached={len(checkpoints_loaded.keys())}')
 
 
-def reload_model_weights(sd_model=None, info=None, reuse_dict=False, op='model'):
+def reload_model_weights(sd_model=None, info=None, reuse_dict=False, op='model', force=False):
     load_dict = shared.opts.sd_model_dict != model_data.sd_dict
     from modules import lowvram, sd_hijack
     checkpoint_info = info or select_checkpoint(op=op) # are we selecting model or dictionary
@@ -1515,7 +1511,7 @@ def reload_model_weights(sd_model=None, info=None, reuse_dict=False, op='model')
         current_checkpoint_info = None
     else:
         current_checkpoint_info = getattr(sd_model, 'sd_checkpoint_info', None)
-        if current_checkpoint_info is not None and checkpoint_info is not None and current_checkpoint_info.filename == checkpoint_info.filename:
+        if current_checkpoint_info is not None and checkpoint_info is not None and current_checkpoint_info.filename == checkpoint_info.filename and not force:
             return None
         if shared.backend == shared.Backend.ORIGINAL and (shared.cmd_opts.lowvram or shared.cmd_opts.medvram):
             lowvram.send_everything_to_cpu()

@@ -92,18 +92,21 @@ def set_pipeline_args(p, model, prompts: list, negative_prompts: list, prompts_2
 
     steps = kwargs.get("num_inference_steps", None) or len(getattr(p, 'timesteps', ['1']))
     if 'timesteps' in possible:
-        try:
-            timesteps = re.split(',| ', shared.opts.schedulers_timesteps)
-            timesteps = [int(x) for x in timesteps if x.isdigit()]
-            if len(timesteps) > 0:
-                args['timesteps'] = timesteps
-                p.steps = len(timesteps)
-                p.timesteps = timesteps
-                steps = p.steps
-                shared.log.debug(f'Sampler: steps={len(timesteps)} timesteps={timesteps}')
-        except Exception as e:
-            shared.log.error(f'Sampler timesteps: {e}')
-    if shared.opts.prompt_attention != 'Fixed attention' and 'StableDiffusion' in model.__class__.__name__ and 'Onnx' not in model.__class__.__name__:
+        timesteps = re.split(',| ', shared.opts.schedulers_timesteps)
+        timesteps = [int(x) for x in timesteps if x.isdigit()]
+        if len(timesteps) > 0:
+            if hasattr(model.scheduler, 'set_timesteps') and "timesteps" in set(inspect.signature(model.scheduler.set_timesteps).parameters.keys()):
+                try:
+                    args['timesteps'] = timesteps
+                    p.steps = len(timesteps)
+                    p.timesteps = timesteps
+                    steps = p.steps
+                    shared.log.debug(f'Sampler: steps={len(timesteps)} timesteps={timesteps}')
+                except Exception as e:
+                    shared.log.error(f'Sampler timesteps: {e}')
+            else:
+                shared.log.warning(f'Sampler: sampler={model.scheduler.__class__.__name__} timesteps not supported')
+    if shared.opts.prompt_attention != 'Fixed attention' and ('StableDiffusion' in model.__class__.__name__ or 'StableCascade' in model.__class__.__name__) and 'Onnx' not in model.__class__.__name__:
         try:
             prompt_parser_diffusers.encode_prompts(model, p, prompts, negative_prompts, steps=steps, clip_skip=clip_skip)
             parser = shared.opts.prompt_attention
@@ -119,17 +122,24 @@ def set_pipeline_args(p, model, prompts: list, negative_prompts: list, prompts_2
     if 'prompt' in possible:
         if hasattr(model, 'text_encoder') and 'prompt_embeds' in possible and len(p.prompt_embeds) > 0 and p.prompt_embeds[0] is not None:
             args['prompt_embeds'] = p.prompt_embeds[0]
-            if 'XL' in model.__class__.__name__ and len(getattr(p, 'positive_pooleds', [])) > 0:
+            if 'StableCascade' in model.__class__.__name__ and len(getattr(p, 'negative_pooleds', [])) > 0:
+                args['prompt_embeds_pooled'] = p.positive_pooleds[0].unsqueeze(0)
+            elif 'XL' in model.__class__.__name__ and len(getattr(p, 'positive_pooleds', [])) > 0:
                 args['pooled_prompt_embeds'] = p.positive_pooleds[0]
         else:
             args['prompt'] = prompts
     if 'negative_prompt' in possible:
         if hasattr(model, 'text_encoder') and 'negative_prompt_embeds' in possible and len(p.negative_embeds) > 0 and p.negative_embeds[0] is not None:
             args['negative_prompt_embeds'] = p.negative_embeds[0]
+            if 'StableCascade' in model.__class__.__name__ and len(getattr(p, 'negative_pooleds', [])) > 0:
+                args['negative_prompt_embeds_pooled'] = p.negative_pooleds[0].unsqueeze(0)
             if 'XL' in model.__class__.__name__ and len(getattr(p, 'negative_pooleds', [])) > 0:
                 args['negative_pooled_prompt_embeds'] = p.negative_pooleds[0]
         else:
-            args['negative_prompt'] = negative_prompts
+            if 'PixArtSigmaPipeline' in model.__class__.__name__: # pixart-sigma pipeline throws list-of-list for negative prompt
+                args['negative_prompt'] = negative_prompts[0]
+            else:
+                args['negative_prompt'] = negative_prompts
     if hasattr(model, 'scheduler') and hasattr(model.scheduler, 'noise_sampler_seed') and hasattr(model.scheduler, 'noise_sampler'):
         model.scheduler.noise_sampler = None # noise needs to be reset instead of using cached values
         model.scheduler.noise_sampler_seed = p.seeds # some schedulers have internal noise generator and do not use pipeline generator
@@ -140,7 +150,8 @@ def set_pipeline_args(p, model, prompts: list, negative_prompts: list, prompts_2
     if 'generator' in possible:
         args['generator'] = get_generator(p)
     if 'latents' in possible and getattr(p, "init_latent", None) is not None:
-        args['latents'] = p.init_latent
+        if sd_models.get_diffusers_task(model) == sd_models.DiffusersTaskType.TEXT_2_IMAGE:
+            args['latents'] = p.init_latent
     if 'output_type' in possible:
         if not hasattr(model, 'vae'):
             args['output_type'] = 'np' # only set latent if model has vae

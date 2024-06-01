@@ -140,7 +140,7 @@ class EmbeddingDatabase:
     def get_expected_shape(self):
         if shared.backend == shared.Backend.DIFFUSERS:
             return 0
-        if shared.sd_loaded:
+        if not shared.sd_loaded:
             shared.log.error('Model not loaded')
             return 0
         vec = shared.sd_model.cond_stage_model.encode_embedding_init_text(",", 1)
@@ -165,11 +165,11 @@ class EmbeddingDatabase:
             return 0
         filenames = list(filename)
         exts = [".SAFETENSORS", '.BIN', '.PT', '.PNG', '.WEBP', '.JXL', '.AVIF']
-        for filename in filenames:
+        for _filename in filenames:
             # debug(f'Embedding check: {filename}')
-            fullname = filename
-            filename = os.path.basename(fullname)
-            fn, ext = os.path.splitext(filename)
+            fullname = _filename
+            _filename = os.path.basename(fullname)
+            fn, ext = os.path.splitext(_filename)
             name = os.path.basename(fn)
             embedding = Embedding(vec=None, name=name, filename=fullname)
             tokenizer_vocab = tokenizer.get_vocab()
@@ -283,7 +283,7 @@ class EmbeddingDatabase:
         elif ext in ['.SAFETENSORS']:
             data = safetensors.torch.load_file(path, device="cpu")
         else:
-            return
+            return None
 
         # textual inversion embeddings
         if 'string_to_param' in data:

@@ -100,11 +100,7 @@ def create_ui():
 
                     with gr.TabItem('Batch', id='batch', elem_id="img2img_batch_tab") as tab_batch:
                         hidden = '<br>Disabled when launched with --hide-ui-dir-config.' if shared.cmd_opts.hide_ui_dir_config else ''
-                        gr.HTML(
-                            "<p style='padding-bottom: 1em;' class=\"text-gray-500\">Upload images or process images in a directory" +
-                            "<br>Add inpaint batch mask directory to enable inpaint batch processing"
-                            f"{hidden}</p>"
-                        )
+                        gr.HTML(f"<p style='padding-bottom: 1em;' class=\"text-gray-500\">Upload images or process images in a directory <br>Add inpaint batch mask directory to enable inpaint batch processing {hidden}</p>")
                         img2img_batch_files = gr.Files(label="Batch Process", interactive=True, elem_id="img2img_image_batch")
                         img2img_batch_input_dir = gr.Textbox(label="Inpaint batch input directory", **shared.hide_dirs, elem_id="img2img_batch_input_dir")
                         img2img_batch_output_dir = gr.Textbox(label="Inpaint batch output directory", **shared.hide_dirs, elem_id="img2img_batch_output_dir")
@@ -161,7 +157,7 @@ def create_ui():
             img2img_gallery, img2img_generation_info, img2img_html_info, _img2img_html_info_formatted, img2img_html_log = ui_common.create_output_panel("img2img", prompt=img2img_prompt)
 
             ui_common.connect_reuse_seed(seed, reuse_seed, img2img_generation_info, is_subseed=False)
-            ui_common.connect_reuse_seed(subseed, reuse_subseed, img2img_generation_info, is_subseed=True)
+            ui_common.connect_reuse_seed(subseed, reuse_subseed, img2img_generation_info, is_subseed=True, subseed_strength=subseed_strength)
 
             img2img_prompt_img.change(fn=modules.images.image_data, inputs=[img2img_prompt_img], outputs=[img2img_prompt, img2img_prompt_img])
             dummy_component1 = gr.Textbox(visible=False, value='dummy')

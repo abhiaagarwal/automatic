@@ -1,11 +1,20 @@
+import os
+import sys
 from typing import Union
-import platform
 import torch
 from torch._prims_common import DeviceLikeType
+import onnxruntime as ort
 from modules import shared, devices
+from modules.onnx_impl.execution_providers import available_execution_providers, ExecutionProvider
 
 
+PLATFORM = sys.platform
 do_nothing = lambda _: None # pylint: disable=unnecessary-lambda-assignment
+
+
+def _join_rocm_home(*paths) -> str:
+    from torch.utils.cpp_extension import ROCM_HOME
+    return os.path.join(ROCM_HOME, *paths)
 
 
 def is_zluda(device: DeviceLikeType):
@@ -27,7 +36,19 @@ def test(device: DeviceLikeType) -> Union[Exception, None]:
 
 def initialize_zluda():
     device = devices.get_optimal_device()
-    if platform.system() == "Windows" and devices.cuda_ok and is_zluda(device):
+    if not devices.cuda_ok or not is_zluda(device):
+        return
+
+    torch.version.hip = "5.7"
+    sys.platform = ""
+    from torch.utils import cpp_extension
+    sys.platform = PLATFORM
+    cpp_extension.IS_WINDOWS = PLATFORM == "win32"
+    cpp_extension.IS_MACOS = False
+    cpp_extension.IS_LINUX = sys.platform.startswith('linux')
+    cpp_extension._join_rocm_home = _join_rocm_home # pylint: disable=protected-access
+
+    if cpp_extension.IS_WINDOWS:
         torch.backends.cudnn.enabled = False
         torch.backends.cuda.enable_flash_sdp(False)
         torch.backends.cuda.enable_flash_sdp = do_nothing
@@ -39,6 +60,13 @@ def initialize_zluda():
             torch.backends.cuda.enable_cudnn_sdp(False)
             torch.backends.cuda.enable_cudnn_sdp = do_nothing
         shared.opts.sdp_options = ['Math attention']
+
+        # ONNX Runtime is not supported
+        ort.capi._pybind_state.get_available_providers = lambda: [v for v in available_execution_providers if v != ExecutionProvider.CUDA] # pylint: disable=protected-access
+        ort.get_available_providers = ort.capi._pybind_state.get_available_providers # pylint: disable=protected-access
+        if shared.opts.onnx_execution_provider == ExecutionProvider.CUDA:
+            shared.opts.onnx_execution_provider = ExecutionProvider.CPU
+
         devices.device_codeformer = devices.cpu
 
         result = test(device)
