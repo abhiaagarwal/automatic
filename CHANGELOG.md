@@ -1,6 +1,6 @@
 # Change Log for SD.Next
 
-## Update for 2024-06-01
+## Update for 2024-06-02
 
 - fix textual inversion loading
 - fix gallery mtime display
@@ -10,13 +10,15 @@
 - fix negative prompt parsing from metadata
 - fix stable cascade progress monitoring
 - fix variation seed with hires pass
+- fix loading models trained with onetrainer
 - add variation seed info to metadata
 - workaround for scale-by when using modernui
 - lock torch-directml version
 - improve xformers installer
-- improve ultralytics installer
-- improve triton installer
-- improve insightface installer
+- improve ultralytics installer (face-hires)
+- improve triton installer (compile)
+- improve insightface installer (faceip)
+- improve mim installer (dwpose)
 - add dpm++ 1s and dpm++ 3m aliases for dpm++ 2m scheduler with different orders
 
 ## Update for 2024-05-28
